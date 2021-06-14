@@ -96,7 +96,7 @@ jobs:
 
 ## Example of displayed logs
 
-### Success
+### Success (service job)
 ```
 Allocation "1abcd234" (group example-1):
 ✅ Task example-1 successfully deployed.
@@ -106,6 +106,13 @@ Allocation "4901ffe1" (group example-2):
 
 Allocation "ba54b3d9" (group example-1):
 ✅ Task example-1 successfully deployed.
+```
+
+### Success (parameterized job)
+```
+Allocation "c41d3bc7" (group parameterized-1):
+✅ Task parameterized_task_example successfully deployed:
+<PARAMETERIZED JOB OUTPUT>
 ```
 
 ### Error
