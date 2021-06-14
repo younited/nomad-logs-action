@@ -1,0 +1,43 @@
+name: Nomad Logs Action
+description: |
+  Collects Hashicorp Nomad logs from a given job.
+branding:
+  icon: activity
+  color: green
+author: Jeremy Reisser
+inputs:
+  token:
+    description: "Token used to authenticate with a nomad server"
+    required: true
+  address:
+    description: "Address of the nomad server"
+    required: true
+  namespace:
+    description: "Namespace of the nomad job"
+    required: false
+  job:
+    description: "Name of the nomad job"
+    required: true
+  parameterized:
+    description: "Set to true if the nomad job is parameterized"
+    required: false
+    default: "false"
+outputs:
+  status:
+    description: "Indicates the success or failure of the running tasks"
+    value: ${{ steps.run.outputs.status }}
+  content:
+    description: "Displays the task logs from stdout or stderr"
+    value: ${{ steps.run.outputs.content }}
+runs:
+  using: "composite"
+  steps:
+    - id: run
+      run: ${{ github.action_path }}/status.sh
+      shell: bash
+      env:
+        NOMAD_TOKEN: ${{ inputs.token }}
+        NOMAD_ADDR: ${{ inputs.address }}
+        NOMAD_JOB: ${{ inputs.job }}
+        NOMAD_NAMESPACE: ${{ inputs.namespace }}
+        PARAMETERIZED_JOB: ${{ inputs.parameterized }}
