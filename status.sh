@@ -96,8 +96,12 @@ for id in $(echo "${filter_alloc}" | jq -r ".id"); do
           TASK_CONTENT+=$(printf "\n✅ Task ${task} successfully deployed.\n")
         elif [[ "${PARAMETERIZED_JOB}" == "true" ]]; then
           REQ_STDOUT_LOGS="${BASE_URL}/${PATH_LOGS}/${id}'?'namespace=${NOMAD_NAMESPACE}'&'task=${task}'&'type=stdout"'|'"${JQ_DECODE_LOGS}"
-          stdout_logs=$(eval_variable "${REQ_STDOUT_LOGS}")
-          TASK_CONTENT+=$(printf "\n✅ Task ${task} successfully deployed:\n${stdout_logs}\n")
+          if [[ ! -z "$(eval ${REQ_STDOUT_LOGS})" ]]; then
+            stdout_logs=$(eval_variable "${REQ_STDOUT_LOGS}") # PROBLEM HERE, FIX IT
+            TASK_CONTENT+=$(printf "\n✅ Task ${task} successfully deployed:\n${stdout_logs}\n")
+          else
+            TASK_CONTENT+=$(printf "\nNo stdout logs available for ${task}.\n")
+          fi
         fi
         TASK_STATUS+=_success
         break
