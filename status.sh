@@ -59,7 +59,6 @@ JQ_ALLOC_MAP='jq --arg job_version "$job_version" -r ".[] |
   {id: .ID, group: .TaskGroup, tasks: [.TaskStates|keys[]]}"'
 JQ_ALLOC_MAP_PARAM='jq ".[] | {id: .ID, group: .TaskGroup, tasks: [.TaskStates|keys[]]}"'
 JQ_TASK_DETAILS='jq --arg task "$task" -r ".TaskStates.\"$task\""'
-JQ_DECODE_LOGS='jq -r ".Data | @base64d"'
 # Build requests
 REQ_JOB_VERSION="${BASE_URL}/${PATH_DEPLOYMENT}'?'namespace=${NOMAD_NAMESPACE}"'|'"${JQ_JOB_VERSION}"
 REQ_FILTER_ALLOC="${BASE_URL}/${PATH_ALLOCATIONS}'?'namespace=${NOMAD_NAMESPACE}"'|'"${JQ_ALLOC_MAP}"
@@ -84,31 +83,55 @@ for id in $(echo "${filter_alloc}" | jq -r ".id"); do
   TASK_CONTENT+=$(printf "\n\nAllocation \"${alloc_short_id}\" (group ${job_alloc_group}):\n")
 
   for task in $job_alloc_tasks; do
+    TASK_CONTENT+=$(printf "\n\n🔆 Task \"${task}\"\n")
     REQ_TASK_DETAILS="${BASE_URL}/allocation/${id}'?'namespace=${NOMAD_NAMESPACE}"'|'"${JQ_TASK_DETAILS}"
-    while true; do
+    function init_task_details {
       task_details=$(eval_variable "${REQ_TASK_DETAILS}")
       get_task_state=$(echo "${task_details}" | jq -r ".State")
       get_exit_code=$(echo "${task_details}" | jq -r "[.Events[].Details.exit_code // empty]|unique|.[]")
       get_events_type=$(echo "${task_details}" | jq -r "[.Events[].Type|select(length > 0)]|unique|.[]")
+    }
 
+    function get_task_logs {
+      local decode_logs='jq -r ".Data | @base64d"'
+      local ignore_envoy='tail | grep -Fv -e "[info]" -e "deprecated"'
+      local req_logs="${BASE_URL}/${PATH_LOGS}/${id}'?'namespace=${NOMAD_NAMESPACE}'&'task=${task}'&'type=${1}"'|'"${decode_logs}"'|'"${ignore_envoy}"
+      local log_output=$(eval "${req_logs}")
+      echo "${log_output}"
+    }
+
+    while true; do
+      init_task_details
       if [[ "${get_task_state}" == "running" || "${get_exit_code}" == 0 ]]; then
         if [[ -z "${PARAMETERIZED_JOB}" || "${PARAMETERIZED_JOB}" == "false" ]]; then
           TASK_CONTENT+=$(printf "\n✅ Task ${task} successfully deployed.\n")
         elif [[ "${PARAMETERIZED_JOB}" == "true" ]]; then
-          REQ_STDOUT_LOGS="${BASE_URL}/${PATH_LOGS}/${id}'?'namespace=${NOMAD_NAMESPACE}'&'task=${task}'&'type=stdout"'|'"${JQ_DECODE_LOGS}"
-          if [[ ! -z "$(eval ${REQ_STDOUT_LOGS})" ]]; then
-            stdout_logs=$(eval_variable "${REQ_STDOUT_LOGS}")
+          stdout_logs=$(get_task_logs stdout)
+          if [[ ! -z "$(echo ${stdout_logs})" ]]; then
             TASK_CONTENT+=$(printf "\n✅ Task ${task} successfully deployed:\n${stdout_logs}\n")
           fi
         fi
-        TASK_STATUS+=_success
-        break
+        # Re-check for running state
+        sleep 10 && init_task_details
+        if [[ "${get_task_state}" == "running" || "${get_exit_code}" == 0 ]]; then
+          stderr_logs=$(get_task_logs stderr)
+          if [[ ! -z "$(echo ${stderr_logs})" ]]; then
+            TASK_CONTENT+=$(printf "\n❌ Detected errors in task ${task}:\n${stderr_logs}\n")
+            TASK_STATUS+=_failure
+            break
+          else
+            TASK_STATUS+=_success
+            break
+          fi
+        fi
 
       elif [[ ! "${get_task_state}" == "running" && "${get_exit_code}" == 1 ]]; then
-        ignore_envoy='tail | grep -Fv -e "[info]" -e "deprecated"'
-        REQ_ERR_LOGS="${BASE_URL}/${PATH_LOGS}/${id}'?'namespace=${NOMAD_NAMESPACE}'&'task=${task}'&'type=stderr"'|'"${JQ_DECODE_LOGS}"'|'"${ignore_envoy}"
-        err_logs=$(eval_variable "${REQ_ERR_LOGS}")
-        TASK_CONTENT+=$(printf "\n❌ Task ${task} failed:\n${err_logs}\n")
+        stderr_logs=$(get_task_logs stderr)
+        if [[ ! -z "$(echo ${stderr_logs})" ]]; then
+          TASK_CONTENT+=$(printf "\n❌ Task ${task} failed:\n${stderr_logs}\n")
+        else
+          TASK_CONTENT+=$(printf "\n❌ Task ${task} failed but no error log is available\n")
+        fi
         TASK_STATUS+=_failure
         break
 
@@ -124,6 +147,11 @@ for id in $(echo "${filter_alloc}" | jq -r ".id"); do
         TASK_STATUS+=_failure
         TASK_CONTENT+=$(printf "\n❌ Task ${task} failed:\n${err_driver}\n")
         break
+      elif [[ ! "${get_task_state}" == "running" && "${get_events_type}" =~ "Sibling Task Failed" ]]; then
+        err_sibling=$(echo "${task_details}" | jq -r "[.Events[].DisplayMessage|select(length > 0)]|unique|.[]")
+        TASK_STATUS+=_failure
+        TASK_CONTENT+=$(printf "\n❌ Task ${task} failed:\n${err_sibling}\n")
+        break
       fi
       sleep 1
     done
@@ -137,10 +165,11 @@ output_content="${output_content//'%'/'%25'}"
 output_content="${output_content//$'\n'/'%0A'}"
 output_content="${output_content//$'\r'/'%0D'}"
 
-echo "::set-output name=content::${output_content}"
 if [[ "${output_status}" =~ "failure" ]]; then
   echo "::set-output name=status::failure"
+  echo "::set-output name=content::${output_content}"
   exit 1
 else
   echo "::set-output name=status::success"
+  echo "::set-output name=content::${output_content}"
 fi
