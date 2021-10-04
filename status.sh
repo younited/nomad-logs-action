@@ -76,10 +76,10 @@ elif [[ "${PARAMETERIZED_JOB}" == "true" ]]; then
   filter_alloc=$(eval_variable "${REQ_FILTER_ALLOC_PARAM}")
 fi
 
-for id in $(echo "${filter_alloc}" | jq -r ".id"); do
-  job_alloc_tasks=$(echo "${filter_alloc}" | jq --arg id "${id}" -r '. | select (.id == $id) | .tasks[]')
-  job_alloc_group=$(echo "${filter_alloc}" | jq --arg id "${id}" -r '. | select (.id == $id) | .group')
-  alloc_short_id=$(echo "${id}" | awk -F '-' '{print $1}')
+for id in $(printf "${filter_alloc}" | jq -r ".id"); do
+  job_alloc_tasks=$(printf "${filter_alloc}" | jq --arg id "${id}" -r '. | select (.id == $id) | .tasks[]')
+  job_alloc_group=$(printf "${filter_alloc}" | jq --arg id "${id}" -r '. | select (.id == $id) | .group')
+  alloc_short_id=$(printf "${id}" | awk -F '-' '{print $1}')
   TASK_CONTENT+=$(printf "\n\nAllocation \"${alloc_short_id}\" (group ${job_alloc_group}):\n")
 
   for task in $job_alloc_tasks; do
@@ -87,9 +87,9 @@ for id in $(echo "${filter_alloc}" | jq -r ".id"); do
     REQ_TASK_DETAILS="${BASE_URL}/allocation/${id}'?'namespace=${NOMAD_NAMESPACE}"'|'"${JQ_TASK_DETAILS}"
     function init_task_details {
       task_details=$(eval_variable "${REQ_TASK_DETAILS}")
-      get_task_state=$(echo "${task_details}" | jq -r ".State")
-      get_exit_code=$(echo "${task_details}" | jq -r "[.Events[].Details.exit_code // empty]|unique|.[]")
-      get_events_type=$(echo "${task_details}" | jq -r "[.Events[].Type|select(length > 0)]|unique|.[]")
+      get_task_state=$(printf "${task_details}" | jq -r ".State")
+      get_exit_code=$(printf "${task_details}" | jq -r "[.Events[].Details.exit_code // empty]|unique|.[]")
+      get_events_type=$(printf "${task_details}" | jq -r "[.Events[].Type|select(length > 0)]|unique|.[]")
     }
 
     function get_task_logs {
@@ -112,7 +112,7 @@ for id in $(echo "${filter_alloc}" | jq -r ".id"); do
           fi
         fi
         # Re-check for running state
-        sleep 10 && init_task_details
+        init_task_details
         if [[ "${get_task_state}" == "running" || "${get_exit_code}" == 0 ]]; then
           stderr_logs=$(get_task_logs stderr)
           if [[ ! -z "$(echo ${stderr_logs})" ]]; then
@@ -143,12 +143,12 @@ for id in $(echo "${filter_alloc}" | jq -r ".id"); do
         break
 
       elif [[ ! "${get_task_state}" == "running" && "${get_events_type}" =~ "Driver Failure" ]]; then
-        err_driver=$(echo "${task_details}" | jq -r "[.Events[].DriverError|select(length > 0)]|unique|.[]")
+        err_driver=$(printf "${task_details}" | jq -r "[.Events[].DriverError|select(length > 0)]|unique|.[]")
         TASK_STATUS+=_failure
         TASK_CONTENT+=$(printf "\n❌ Task ${task} failed:\n${err_driver}\n")
         break
       elif [[ ! "${get_task_state}" == "running" && "${get_events_type}" =~ "Sibling Task Failed" ]]; then
-        err_sibling=$(echo "${task_details}" | jq -r "[.Events[].DisplayMessage|select(length > 0)]|unique|.[]")
+        err_sibling=$(printf "${task_details}" | jq -r "[.Events[].DisplayMessage|select(length > 0)]|unique|.[]")
         TASK_STATUS+=_failure
         TASK_CONTENT+=$(printf "\n❌ Task ${task} failed:\n${err_sibling}\n")
         break
