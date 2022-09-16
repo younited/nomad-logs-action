@@ -9,7 +9,7 @@ set -o pipefail
 # NOMAD_ADDR=""
 # NOMAD_NAMESPACE=""
 # PARAMETERIZED_JOB="(true|false)"
-# ALLOW_FAILURE="(true|false)"
+# ALLOW_STDERR="(true|false)"
 
 function eval_variable {
   local var=$(eval "${1}")
@@ -168,7 +168,7 @@ output_content="${output_content//$'\r'/'%0D'}"
 
 if [[ "${output_status}" =~ "failure" ]]; then
   echo "::set-output name=content::${output_content}"
-  if [[ "${ALLOW_FAILURE}" == "true" ]]; then 
+  if [[ "${ALLOW_STDERR}" == "true" ]]; then 
     echo "::set-output name=status::success"
   else
     echo "::set-output name=status::failure"

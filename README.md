@@ -46,7 +46,7 @@ jobs:
           job: parameterized-job
           namespace: my-namespace
           parameterized: true
-          allow-failure: true
+          allow-stderr: true
 ```
 
 Combine with vault-action
@@ -89,7 +89,7 @@ jobs:
 - `namespace`: Namespace of the nomad job
 - `job`: Name of the nomad job
 - `parameterized`: Set to true if the nomad job is parameterized
-- `allow-failure`: Set to true so that the action completes successfully if logs are detected on stderr
+- `allow-stderr`: Set to true so that the action completes successfully if logs are detected on stderr
 
 ## Outputs
 
