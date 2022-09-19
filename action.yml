@@ -22,6 +22,10 @@ inputs:
     description: "Set to true if the nomad job is parameterized"
     required: false
     default: "false"
+  allow-stderr:
+    description: "Set to true so that the action completes successfully if logs are detected on stderr"
+    required: false
+    default: "false"
 outputs:
   status:
     description: "Indicates the success or failure of the running tasks"
@@ -41,3 +45,4 @@ runs:
         NOMAD_JOB: ${{ inputs.job }}
         NOMAD_NAMESPACE: ${{ inputs.namespace }}
         PARAMETERIZED_JOB: ${{ inputs.parameterized }}
+        ALLOW_STDERR: ${{ inputs.allow-stderr }}

@@ -25,7 +25,7 @@ jobs:
           job: example-job
 ```
 
-Get logs from a parameterized job in a specific namespace
+Get logs from a parameterized job in a specific namespace and always complete successfully
 
 ```yml
 name: Get logs from Nomad Job
@@ -46,6 +46,7 @@ jobs:
           job: parameterized-job
           namespace: my-namespace
           parameterized: true
+          allow-stderr: true
 ```
 
 Combine with vault-action
@@ -88,6 +89,7 @@ jobs:
 - `namespace`: Namespace of the nomad job
 - `job`: Name of the nomad job
 - `parameterized`: Set to true if the nomad job is parameterized
+- `allow-stderr`: Set to true so that the action completes successfully if logs are detected on stderr
 
 ## Outputs
 
