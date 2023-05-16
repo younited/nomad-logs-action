@@ -167,14 +167,14 @@ output_content="${output_content//$'\n'/'%0A'}"
 output_content="${output_content//$'\r'/'%0D'}"
 
 if [[ "${output_status}" =~ "failure" ]]; then
-  echo "::set-output name=content::${output_content}"
-  if [[ "${ALLOW_STDERR}" == "true" ]]; then 
-    echo "::set-output name=status::success"
+  echo "content=${output_content}" >>"$GITHUB_OUTPUT"
+  if [[ "${ALLOW_STDERR}" == "true" ]]; then
+    echo "status=success" >>"$GITHUB_OUTPUT"
   else
-    echo "::set-output name=status::failure"
+    echo "status=failure" >>"$GITHUB_OUTPUT"
     exit 1
   fi
 else
-  echo "::set-output name=content::${output_content}"
-  echo "::set-output name=status::success"
+  echo "content=${output_content}" >>"$GITHUB_OUTPUT"
+  echo "status=success" >>"$GITHUB_OUTPUT"
 fi
