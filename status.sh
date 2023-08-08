@@ -10,6 +10,7 @@ set -o pipefail
 # NOMAD_NAMESPACE=""
 # PARAMETERIZED_JOB="(true|false)"
 # ALLOW_STDERR="(true|false)"
+# http_proxy=""
 
 function eval_variable {
   local var=$(eval "${1}")
